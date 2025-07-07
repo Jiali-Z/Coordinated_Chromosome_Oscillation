@@ -129,9 +129,6 @@ end
    
 % Oscillation Analysis 
 iter = 1; % since this is one simulation run
-
 [table_raw, table_cycle, table_summary] = oscillation_measurement(cL, cR, dt, iter, true);
-
-% -------------------- Print Summary --------------------
-disp('Summary of Oscillation Amplitude and Period (Mean ± STD):');
+disp('Summary of Oscillation Amplitude and Period (Mean ± STD):');% Print Summary
 disp(table_summary);
