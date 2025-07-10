@@ -1,28 +1,36 @@
 % One Oscillating Chromosome 
 % See overleaf document "Chromosome Oscillation Models(cleanup)" for model
-% details.
-
+% details 
+% I use this scripts to identify the following bifurcation point 
+% Alpha = 3: No kct recover oscillation 
+% Alpha = 4: Kct=15.3 -> 15.4
+% Alpha = 5: Kct=12.9 -> 13
+% Alpha = 6: Kct=12.3 -> 12.4
+% Alpha = 7: Kct=12.2 -> 12.3
+% Alpha = 8: Kct=12.4 -> 12.5
+% Alpha = 9: Kct=12.8 -> 12.9
+% Alpha = 10: Kct=13.4 -> 13.2
+% Alpha = 11: no longer a sharp transition
 
 
 clc;clear;close all;
 
 % Time Information 
-dt = 4e-3; % Timestep
+dt = 2e-3; % Timestep
 Nsteps = 5000; % Number of steps Unit:min 
 
 %Parameter Values for chromosome movement
-n_dot = 1;
-Kct = 30; % pN/µm centromere spring constant, Harasymiw et al, 2019
+n_dot = 1; %Add noise to Ndot 
+Kct = 12.4; % pN/µm centromere spring constant, Harasymiw et al, 2019
 I0 = 2; % µm Rest length of centromere spring
 Kkt = 1; % pN/µm kinetocore spring constant, Cojoc et al. 2016
-Gamma = 0.25; % kg/s Drag coefficient
+Gamma = 0.1; % kg/s Drag coefficient
 Beta = 0.7; % Scaling factor
 Nmax = 25; % Maximum number of attachments
-Nbar=20; % Steady state number of MTs when Ch is centered
+Nbar=20; % Steady state number of MTs when Ch is centered %Add noise to Nbar
 Lambda=n_dot/(Nbar); % s^-2 KMT detach rate Akioshi et al. 2010
-Alpha=n_dot*5/(1-Beta); 
+Alpha=n_dot*5.8/(1-Beta); 
 epsilon =0.1; % Small perturbation factor
-noise=0;
 
 % Set up the vectors for results
 xL = zeros(Nsteps, 1); % Left MT tip position 
@@ -54,8 +62,6 @@ vR(1)=0;
 % ODE solver loop
 for t = 1:Nsteps
     % Force Calculations 
-    % Random Force 
-    F_noise = noise * randn(1,1) / sqrt(dt); % Brownian Force
     % Define centromere and MT forces on the given chromosome
     F_KT_L = -NL(t) * Kkt * (cL(t) - xL(t)); % MT forces on Left Chromosome
     F_CT_L = Kct * (cR(t) - cL(t) - I0); % Centromere forces on Left Chromosome
@@ -63,8 +69,8 @@ for t = 1:Nsteps
     F_CT_R = -Kct * (cR(t) - cL(t) - I0); % Centromere forces on Right Chromosome
 
     % Calculate velocities 
-    vL(t) = (F_KT_L + F_CT_L+F_noise)/Gamma;
-    vR(t) = (F_KT_R + F_CT_R+F_noise)/Gamma;
+    vL(t) = (F_KT_L + F_CT_L)/Gamma;
+    vR(t) = (F_KT_R + F_CT_R)/Gamma;
     
     % Update Positions 
     % Calculate the current chromosome position in both directions
