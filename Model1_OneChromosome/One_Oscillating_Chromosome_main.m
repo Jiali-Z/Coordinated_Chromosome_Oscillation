@@ -29,7 +29,7 @@ Beta = 0.7; % Scaling factor
 Nmax = 25; % Maximum number of attachments
 Nbar=20; % Steady state number of MTs when Ch is centered %Add noise to Nbar
 Lambda=n_dot/(Nbar); % s^-2 KMT detach rate Akioshi et al. 2010
-Alpha=n_dot*5.8/(1-Beta); 
+Alpha=n_dot*6/(1-Beta); 
 epsilon =0.1; % Small perturbation factor
 
 % Set up the vectors for results
@@ -138,3 +138,19 @@ iter = 1; % since this is one simulation run
 [table_raw, table_cycle, table_summary] = oscillation_measurement(cL, cR, dt, iter, true);
 disp('Summary of Oscillation Amplitude and Period (Mean ± STD):');% Print Summary
 disp(table_summary);
+
+% Chromosome Activity Analysis
+activty_table = chromosome_activity_measurement(cL, cR, dt);
+disp('Chromosome Activity Summary:');
+disp(activty_table);
+
+figure;
+bar_data = [activty_table.Avg_KE; activty_table.vL; activty_table.vR];
+bar_labels = {'Avg KE', 'Avg |v_L|', 'Avg |v_R|'};
+
+bar(bar_data, 'FaceColor', [0.3 0.3 0.3]);
+set(gca, 'XTickLabel', bar_labels, 'FontSize', 14);
+ylabel('Value', 'FontSize', 16);
+ylim([0,40])
+title('Chromosome Activity Metrics', 'FontSize', 18);
+grid on;
