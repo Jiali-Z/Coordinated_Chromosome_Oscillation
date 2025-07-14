@@ -27,11 +27,13 @@ for chr = 1:Nchromosomes
     KK = cR(:,1,chr) - cL(:,1,chr);
 
     % Find peaks and valleys
-    [CM_peaks, CM_peak_locs] = findpeaks(CM, 'MinPeakProminence', 0.1);
-    [CM_valleys, CM_valley_locs] = findpeaks(-CM, 'MinPeakProminence', 0.1); CM_valleys = -CM_valleys;
+    [CM_peaks, CM_peak_locs] = findpeaks(CM, 'MinPeakProminence', 1,'MinPeakDistance',1);
+    [CM_valleys, CM_valley_locs] = findpeaks(-CM, 'MinPeakProminence', 1,'MinPeakDistance',1); 
+    CM_valleys = -CM_valleys;
 
-    [KK_peaks, KK_peak_locs] = findpeaks(KK, 'MinPeakProminence', 0.1);
-    [KK_valleys, KK_valley_locs] = findpeaks(-KK, 'MinPeakProminence', 0.1); KK_valleys = -KK_valleys;
+    [KK_peaks, KK_peak_locs] = findpeaks(KK, 'MinPeakProminence', 0.4,'MinPeakDistance',0.5);
+    [KK_valleys, KK_valley_locs] = findpeaks(-KK, 'MinPeakProminence',0.4,'MinPeakDistance',0.5); 
+    KK_valleys = -KK_valleys;
 
     % --- Raw table ---
     T_Raw_CM = table(...
