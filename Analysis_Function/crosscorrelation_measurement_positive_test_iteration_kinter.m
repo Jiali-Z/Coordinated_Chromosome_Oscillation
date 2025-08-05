@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% CROSSCORRELATION_MEASUREMENT_KINTER_SWEEP.M
+% crosscorrelation_measurement_positive_test_iteration_kinter.M
 %
 % PURPOSE:
 %   This script extends the multiple-iteration **positive control model** 
@@ -12,11 +12,6 @@
 %   to systematically test whether increasing K_inter leads to higher 
 %   pairwise correlation, as measured by `crosscorrelation_measurement`.
 %
-% KEY FEATURES:
-%   - Repeats the stochastic simulation for multiple valid iterations per K_inter
-%   - Computes normalized cross-correlation across τ (5–150 s) and neighbor levels
-%   - Stores and compares average C(neighbor) for different K_inter values
-%   - Plots C vs. neighbor level for each K_inter value using the middle τ group
 %
 % MODEL DETAILS:
 %   - Each chromosome experiences:

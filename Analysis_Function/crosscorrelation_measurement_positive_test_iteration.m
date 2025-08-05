@@ -48,7 +48,7 @@ Nchromosomes = 5;         % Number of particles
 dt = 2e-3;                % Time step
 Nsteps = 5000;            % Number of steps
 K = 1;                    % Spring constant
-Gamma = 0.01;                % Drag coefficient
+Gamma = 0.01;             % Drag coefficient
 noise_strength = 0.1;     % Noise magnitude
 % Add inter-particle springs 
 K_inter = 1;  % Inter-particle spring constant 

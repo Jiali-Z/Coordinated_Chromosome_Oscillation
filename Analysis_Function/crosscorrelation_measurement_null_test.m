@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% crosscorrelation_measurement_null.M
+% crosscorrelation_measurement_null_test.M
 %
 % PURPOSE:
 %   This scipr impements a **null model** for chromosome osciilation, 
@@ -16,7 +16,8 @@
 % Model Detail:
 %   - Each particle experiences a deterministic restoring force (-Kx)
 %     and stochastic Brownian noise in the x-direction.
-%   - The y-position is fixed 
+%   - The y-position is fixed. 
+%   - No inter-particle interactions 
 %   - Cross-correlation is calculated using a custom function 
 %     `crosscorrelation_measurement.m` for multiple time lags.
 %
@@ -37,6 +38,11 @@
 %   - K             : Spring constant (harmonic trap strength)
 %   - noise_strength: Magnitude of Brownian noise
 %   - tau_step      : Step size in τ (computed from 5s intervals)
+%
+% NOTE:
+%   - τ values range from 5 to 150 seconds in 5-second steps
+%   - τ values are grouped into 3 bins of 10 τ values each for plotting
+%   - Correlation values are normalized by the number of contributing terms
 %
 % AUTHOR:
 %   Jiali Zhu, 2025/08/01, UNC-Chapel Hill 
