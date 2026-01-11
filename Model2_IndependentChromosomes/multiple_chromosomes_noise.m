@@ -1,147 +1,142 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% multi_chromosomes_noise.m
+% multiple_chromosomes_noise.m
 %
 % PURPOSE
-%   N independent sister-chromosome pairs with small stochasticity added to:
-%     (i) kinetic parameters (n_dot, Nbar) per chromosome, and
-%     (ii) chromosome x-positions via TWO noise modes that drive BOTH
-%         center-of-mass (COM) and inter-kinetochore (KK) jitter.
+%   Simulate N independent sister-chromosome pairs in 1D (x), each with
+%   chromosome-specific parameter noise and measurement-like positional jitter.
+%   This script is a negative control: because chromosome pairs are independent,
+%   cross-chromosome coordination metrics (Pearson r, displacement cross-corr)
+%   should be ~0 on average.
 %
-% What's added to the main script: 
-%   • Parameter noise (cell-to-cell variability), drawn independently for
-%     each chromosome i 
-%   • Chromsomal positional jitter in 1D for each chromosome i 
-%   • Motion is strictly 1D; y is fixed (layout uses evenly spaced y’s).
+% WHAT'S DIFFERENT FROM one_oscillating_chromosome_noise.m: 
+%   - Simulates N chromosome pairs (indexed by i = 1..Nchromosomes) 
+%   - Draws kinetic parameters independently for each chromosome i
+%   - Assigns fixed y-positions for visualization only (dynamics remain 1D in x)
+%   - Adds coordination analyses across chromosome pairs (Pearson + displacement cross-corr)
 %
-% OUTPUTS 
-%  Figures:
-%   – Side-by-side CM traces over time for all chromosomes
-%   – 2D CM (x vs fixed y) trajectories
-%  Command-window tables from:
-%   - Oscillation summary (mean ± SD of amplitude and period for CM and KK oscillation)
-%   – Chromosome activity summary: Avg_KE, Avg |v_L|, Avg |v_R|
-%  Bar chart:
-%   – “Chromosome Activity Metrics” (Avg_KE, Avg |v_L|, Avg |v_R|) for each
-%   chromosome i 
-%  Cross-correlation analysis: 
-%  - Distribution of Pearson's coefficients 
-%  Microrheology analysis: 
-%  - Cross-correlation VS neighbor order in the first 100sec
-%  - Crpss-correlation VS lag time for neighbor order of 1,2,3 
+% OUTPUTS
+%   Figures:
+%     (1) CM traces over time for all chromosomes (stacked/offset view)
+%     (2+) Peaks and valleys identified by oscillation_measurement for each chromosome (if plotting enabled)
+%     (2) Activity metrics bar plot per chromosome (Avg_KE, Avg|v_L|, Avg|v_R|)
+%     (3) Pearson correlation distribution across chromosome pairs
+%     (4) Cross-correlation vs neighbor order (two-point microrheology analysis of chromosome embedded in spindle)
+%     (5) Cross-correlation vs lag time (two-point microrheology analysis of chromosome embedded in spindle)
+%
+%   Printed tables:
+%     - Per-chromosome CM/KK oscillation summary (mean ± SD)
+%     - Per-chromosome activity summary
+%   
+%   Optional CSV:
+%     – Per-chromosome cL/cR trajectories vs time for Python-based plotting
 %
 % DEPENDENCIES
 %   oscillation_measurement.m
 %   chromosome_activity_measurement.m
-%   crosscorrelation_measurement.m   
-%
+%   pearsons_correlation_analysis.m
+%   crosscorrelation_measurement.m
 %
 % AUTHOR
 %   Jiali Zhu, 2025, UNC-Chapel Hill
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clc;clear;close all;
-% Time Information 
-dt = 2e-3; % Timestep
-Nsteps = 5000; % Number of steps Unit:min 
-Nchromosomes=5; %Number of chromosome pairs 
 
-%Parameter Values for chromosome movement
-noise=0.05;
-noise_b=0.05;
-Kct = 14.80; % pN/µm centromee spring constant, Harasymiw et al, 2019
-I0 = 2; % µm Rest length of centromere spring
-Kkt = 1;% pN/m kinetocore spring constant, Cojoc et al. 2016
-Gamma = 0.1; % kg/s Drag coefficient
-Beta = 0.7; % Scaling factor
-Nmax = 25; % Maximum number of attachments
-% n_dot = 1*(1+noise*(2*rand(1)-1)); %Add noise 
-% Nbar=20*(1+noise*(2*rand(1)-1)); % Steady state number of MTs when Ch is centered
-% Lambda=n_dot/(Nbar);% s^-2 KMT detach rate Akioshi et al. 2010
-%Alpha=n_dot*6.3/(1-Beta); 
-epsilon =0.1; % Small perturbation factor
+% ---------------- Time information ---------------- 
+dt = 2e-3;         % time step (min)
+Nsteps = 5000;     % number of simulation steps 
 
-%Varying parameters for each chromoosme
-Nbar = zeros(Nchromosomes,1); %The steady-state number of MTs when the Ch is centered
+% ---------------- Number of chromosome ---------------- 
+Nchromosomes=5;    
+
+% ---------------- Noise parameters ----------------
+noise=0.05;        % magnitude of uniform parameter perturbations for n_dot and Nbar
+noise_b=0.05;      % magnitude of common-mode positional jitter added each time step
+
+% ---------------- Model parameters ----------------
+Kct = 12.30;       % pN/µm  centromere spring constant  
+I0 = 2;            % µm     centromere rest length
+Kkt = 1;           % pN/µm  KT–MT spring constant 
+Gamma = 0.1;       %        effective drag coefficient 
+Beta = 0.7;        %        scaling for MT tip velocity
+Nmax = 25;         % count  max number of KT–MT attachments
+epsilon =0.1;      % small symmetry-breaking perturbation (dimensionless) 
+
+% ---------------- Parameter noise per chromosome ----------------
+% Each chromosome i gets its own kinetic parameters (chromosome-to-chromosome variability).
+% These are drawn ONCE (at initialization) and held fixed during the simulation.
+Nbar   = zeros(Nchromosomes, 1);  % steady-state attachment number (initialization reference)
+n_dot  = zeros(Nchromosomes, 1);  % baseline gain term for attachments
+Lambda = zeros(Nchromosomes, 1);  % detachment rate constant
+Alpha  = zeros(Nchromosomes, 1);  % velocity-attachment coupling coefficient
 for i = 1:Nchromosomes
-    Nbar(i) = 20*(1+noise*(2*rand(1)-1));
+    Nbar(i)  = 20 * (1 + noise * (2*rand(1) - 1));
+    n_dot(i) =  1 * (1 + noise * (2*rand(1) - 1));
+    Lambda(i) = n_dot(i) / Nbar(i);
+    Alpha(i)  = n_dot(i) * 6.2 / (1 - Beta);
 end
-n_dot = zeros(Nchromosomes,1); %The steady-state number of MTs when the Ch is centered
-for i = 1:Nchromosomes
-    n_dot(i) = 1*(1+noise*(2*rand(1)-1));
-end
-Lambda = zeros(Nchromosomes, 1);% s^-2 KMT detach rate Akioshi et al. 2010
-for i = 1:Nchromosomes
-    Lambda(i)=n_dot(i)/Nbar(i);
-end
-Alpha = zeros(Nchromosomes, 1);
-for i = 1:Nchromosomes
-    Alpha(i)=n_dot(i)*6.2/(1-Beta);
-end
+% Print parameter draws
 fprintf("Ndot = %4.4f\n", n_dot);
 fprintf("Nbar = %4.4f\n", Nbar);
 fprintf("Lambda = %4.4f\n", Lambda);
 fprintf("Alpha = %4.4f\n", Alpha);
 
-% Set up the vectors for results
-cL = zeros(Nsteps+1, 2,Nchromosomes); % Left chromosome position (time,axis,Nchromosome) 
-cR = zeros(Nsteps+1, 2,Nchromosomes); % Right chromosome position (time,axis,Nchromosome) 
-xL = zeros(Nsteps+1, Nchromosomes); % Left MT tip position 
-xR = zeros(Nsteps+1, Nchromosomes); % Right MT tip position 
-NL = zeros(Nsteps+1, Nchromosomes); % Left MT-KT attachment amount 
-NR = zeros(Nsteps+1, Nchromosomes); % Right MT-KT attachment amount 
-vL = zeros(Nsteps, Nchromosomes); % Left chromosome position 
-vR = zeros(Nsteps, Nchromosomes); % Right chromosome position
+% ---------------- Pre-allocate state variables ----------------
+cL = zeros(Nsteps+1, 2,Nchromosomes);       % left chromosome position: (time, [x y], chromosome index)
+cR = zeros(Nsteps+1, 2,Nchromosomes);       % right chromosome position: (time, [x y], chromosome index)
+xL = zeros(Nsteps+1, Nchromosomes);         % left MT tip x-position over time
+xR = zeros(Nsteps+1, Nchromosomes);         % right MT tip x-position over time
+NL = zeros(Nsteps+1, Nchromosomes);         % left KT–MT attachment number over time 
+NR = zeros(Nsteps+1, Nchromosomes);         % right KT–MT attachment number over time 
+vL = zeros(Nsteps, Nchromosomes);           % left chromosome velocity over time
+vR = zeros(Nsteps, Nchromosomes);           % right chromosome velocity over time
 
-
-
-% Initial Condition 
-% Fixed y positions
+% ---------------- Initial conditions ----------------
+% Fixed y positions are assigned
 y_positions = linspace(-Nchromosomes/2, Nchromosomes/2, Nchromosomes);
 % Each Pairs have their own 
 for i = 1: Nchromosomes 
-    % Number of attachments
+    % Initial attachment numbers (slightly perturbed to break symmetry)
     NR(1,i)=Nbar(i)*(1-epsilon);
     NL(1,i)=Nbar(i)*(1+epsilon); 
-    % Ch position 
-    cL(1,1,i) =-I0/2-epsilon*(2*rand(1)-1);%[x,y]
-    cR(1,1,i) =I0/2+epsilon*(2*rand(1)-1);%[x,y]
-    cL(:,2,i) = y_positions(i);
-    cR(:,2,i) = y_positions(i);
-    % MT tip position 
+    % Initial chromosome positions (x in µm; y fixed) 
+    cL(1,1,i) =-I0/2-epsilon*(2*rand(1)-1); % left sister initial x-position
+    cR(1,1,i) =I0/2+epsilon*(2*rand(1)-1);  % right sister initial x-position
+    cL(:,2,i) = y_positions(i);             % y fixed
+    cR(:,2,i) = y_positions(i);             % y fixed
+    % Initial MT tip positions (offset from chromosomes; chosen to start dynamics)
     xL(1,i) = cL(1,1,i)-0.3;
     xR(1,i) = cR(1,1,i)+0.3;
+    % Initial chromosome velocities
     vL(1,i)=0;
     vR(1,i)=0;
 end 
 
-% ODE solver loop
+% ---------------- Time integration loop (explicit Euler) ----------------
 for t = 1:Nsteps
     for i=1:Nchromosomes 
-    % Force Calculations 
-    % Random Force 
-    F_noise = 0*noise_b *(randn(1,1)) / sqrt(dt); % Brownian Force
+    % ----- Force calculations -----
     % Define centromere and MT forces on the given chromosome
-    F_KT_L = -NL(t,i) * Kkt * (cL(t,1,i) - xL(t,i)); % MT forces on Left Chromosome
-    F_CT_L = Kct * (cR(t,1,i) - cL(t,1,i) - I0); % Centromere forces on Left Chromosome
-    F_KT_R = -NR(t,i) * Kkt * (cR(t,1,i) - xR(t,i)); % MT forces on Right Chromosome
-    F_CT_R = -Kct * (cR(t,1,i) - cL(t,1,i) - I0); % Centromere forces on Right Chromosome
-
-    % Calculate velocities 
-    vL(t,i) = (F_KT_L + F_CT_L+F_noise)/Gamma;
-    vR(t,i) = (F_KT_R + F_CT_R+F_noise)/Gamma;
+    F_KT_L = -NL(t,i) * Kkt * (cL(t,1,i) - xL(t,i));  % force on left chromosome from KT–MT bundle
+    F_CT_L = Kct * (cR(t,1,i) - cL(t,1,i) - I0);      % Centromere forces on Left Chromosome
+    F_KT_R = -NR(t,i) * Kkt * (cR(t,1,i) - xR(t,i));  % force on right chromosome from KT–MT bundle
+    F_CT_R = -Kct * (cR(t,1,i) - cL(t,1,i) - I0);     % Centromere forces on Right Chromosome
+    % ----- Velocities (overdamped dynamics) -----
+    vL(t,i) = (F_KT_L + F_CT_L)/Gamma;
+    vR(t,i) = (F_KT_R + F_CT_R)/Gamma;
     
-    % Update Positions 
-    % Calculate the current chromosome position in both directions
+    % ----- Update chromosome positions -----
+    % Common-mode positional jitter: the same dx_diff is added to both sisters,
     dx_diff=noise_b *(randn(1))*sqrt(dt);
     cL(t+1,1,i) = cL(t,1,i) + dt * vL(t,i)+dx_diff ;
     cR(t+1,1,i) = cR(t,1,i) + dt * vR(t,i)+dx_diff ;
     % Maintain fixed Y positions
     cL(t+1,2,i) = cL(1,2,i);
     cR(t+1,2,i) = cR(1,2,i);
-    % Calculate the current microtubule tip position in both directions
+    % ----- Update MT tip positions -----
     xL(t+1,i) = xL(t,i) + dt * Beta * (vL(t,i));
     xR(t+1,i) = xR(t,i) + dt * Beta * (vR(t,i));
-    % Update number of attachments 
+    % ----- Update attachment numbers -----
     NL(t+1,i) = NL(t,i) + dt * (...
         n_dot(i) +(-Alpha(i) * NL(t,i) * (1 - Beta) * vL(t,i) * (1 - NL(t,i)/Nmax)) ...
         - Lambda(i)* NL(t,i));
@@ -151,8 +146,8 @@ for t = 1:Nsteps
     end
 end
 
-%Draw afterwards
-% side-by-side CM positions overtime 
+% ---------------- Derived observables and plotting ----------------
+% Figure1: side-by-side CM positions overtime 
 figure;
 hold on;
 time = (0:Nsteps) * dt;
@@ -167,50 +162,16 @@ legend(arrayfun(@(i) sprintf('Chr %d', i), 1:Nchromosomes, 'UniformOutput', fals
 set(gca, 'FontSize', 14);
 grid on;
 
-% % Movement Trajectories 
-% figure;
-% hold on;
-% time = (0:Nsteps) * dt;
-% for i = 1:Nchromosomes
-%     CMx = (cL(:,1,i) + cR(:,1,i)) / 2;
-%     CMy = (cL(:,2,i) + cR(:,2,i)) / 2;
-%     plot(CMx, CMy, 'LineWidth', 2);
-% end
-% xlabel('Center of Mass X Position (µm)');
-% ylabel('Center of Mass Y Position (µm)');
-% title('Chromosome CM Oscillations');
-% legend(arrayfun(@(i) sprintf('Chr %d', i), 1:Nchromosomes, 'UniformOutput', false));
-% set(gca, 'FontSize', 14);
-% grid on;
-%% Save .csv for plotting in python 
-Step   = (0:Nsteps)';            % 0,1,2,...,Nsteps 
-T_min = (0:Nsteps)' * dt;        % time in minutes
-T_sec = T_min * 60;              % time in seconds 
-
-cL_x = squeeze(cL(:,1,:));      % (Nsteps+1) x Nchromosomes
-cR_x = squeeze(cR(:,1,:));      % (Nsteps+1) x Nchromosomes
-% Build data matrix
-Chromosome = repelem((1:Nchromosomes)', numel(Step), 1);   
-Step_all   = repmat(Step, Nchromosomes, 1);
-Tmin_all   = repmat(T_min, Nchromosomes, 1);
-Tsec_all   = repmat(T_sec, Nchromosomes, 1);
-cL_col     = reshape(cL_x, [], 1);
-cR_col     = reshape(cR_x, [], 1);
-
-cLcR_tbl = table(Chromosome, Step_all, Tmin_all, Tsec_all, cL_col, cR_col, ...
-    'VariableNames', {'Chromosome','Step','T_min','T_sec','cL','cR'});
-writetable(cLcR_tbl, 'interdependent_chromosome_trajectory_sample01.csv');
-
-%% Analysis 
+% ---------------- Oscillation and activity analysis ----------------
 % Oscillation Analysis 
-[~, ~, summary] = oscillation_measurement(cL(:,:,:), cR(:,:,:), dt, 1, true);
+[~, ~, summary] = oscillation_measurement(cL(:,:,:), cR(:,:,:), dt, 1, false);
 disp('Per-Chromosome Oscillation Summary:');
 disp(summary);
 % Chromosome Activity Analysis
 activity_all= chromosome_activity_measurement(cL(:,:,:), cR(:,:,:), dt);
 disp('Per-Chromosome Activity Summary:');
 disp(activity_all);
-
+% Figure 2: activity metrics bar plot for each chromosome 
 figure;
 bar_data = [activity_all.Avg_KE, activity_all.vL, activity_all.vR];
 bar(bar_data, 'grouped');
@@ -220,10 +181,11 @@ ylabel('Value');
 title('Chromosome Activity');
 grid on;
 
-%% Pearon's correlation analysis 
+% ---------------- inter-chromosomal correlation analysis ----------------
+% Pearon's correlation analysis 
 duration = 10;  % minutes
 pearson_table = pearsons_correlation_analysis(cL, cR, dt, duration);
-% Plot the distribution of Pearson's coefficients
+% Figure 3: distribution of Pearson's coefficients
 figure; 
 histogram(pearson_table.pearson_r, 20);                        % 20 bins; adjust if you like
 xlabel('Pearson''s r (CM vs CM)');
@@ -234,7 +196,7 @@ xline(0, '--k');                                % reference at r=0
 xline(mean(pearson_table.pearson_r,'omitnan'), 'r-', 'LineWidth', 1.5);  % mean r
 hold off;
 
-%% Cross-correlation Analysis 
+% Cross-correlation Analysis 
 % Create a structure array to store results
 records = struct('iteration', {}, 'tau', {}, 'neighbor', {}, 'C_value', {}, 'N_value', {});
 tau_step = round(5 / (dt * 60));  % Number of steps per 5-second interval
@@ -253,7 +215,6 @@ for tau = tau_values
         else
             C_norm = NaN;
         end
-
         records(end+1) = struct( ...
             'iteration', iteration_id, ...
             'tau', tau, ...
@@ -265,7 +226,7 @@ for tau = tau_values
 end
 records_table = struct2table(records);
 
-% Plot 1: Avg Cross-Correlation vs Neighbor Level for Each τ Group
+% Figure 4: Avg Cross-Correlation vs Neighbor Level for Each τ Group
 figure; hold on;
 colors = lines(size(tau_groups, 1));
 for g = 1:size(tau_groups, 1)
@@ -283,7 +244,7 @@ xlabel('Neighbor Level'); ylabel('Avg Norm Cross-Corr');
 title('C vs Neighbor Level (Grouped by \tau)');
 legend; grid on; box on;
 
-% Plot 2: C vs Time Lag for Neighbor Level = 1, 2, 3
+% Figure 5: C vs Time Lag for Neighbor Level = 1, 2, 3
 figure; hold on;
 for n = 1:Nchromosomes-1
     subset = records_table(records_table.neighbor == n, :);
@@ -299,3 +260,22 @@ title('C vs \tau for 1st, 2nd, 3rd Neighbors', 'FontSize', 16);
 legend('Location', 'best');
 grid on; box on;
 set(gca, 'FontSize', 12);
+
+%% Save .csv for plotting in python 
+Step   = (0:Nsteps)';            % 0,1,2,...,Nsteps 
+T_min = (0:Nsteps)' * dt;        % time in minutes
+T_sec = T_min * 60;              % time in seconds 
+
+cL_x = squeeze(cL(:,1,:));      % (Nsteps+1) x Nchromosomes
+cR_x = squeeze(cR(:,1,:));      % (Nsteps+1) x Nchromosomes
+% Build data matrix
+Chromosome = repelem((1:Nchromosomes)', numel(Step), 1);   
+Step_all   = repmat(Step, Nchromosomes, 1);
+Tmin_all   = repmat(T_min, Nchromosomes, 1);
+Tsec_all   = repmat(T_sec, Nchromosomes, 1);
+cL_col     = reshape(cL_x, [], 1);
+cR_col     = reshape(cR_x, [], 1);
+
+cLcR_tbl = table(Chromosome, Step_all, Tmin_all, Tsec_all, cL_col, cR_col, ...
+    'VariableNames', {'Chromosome','Step','T_min','T_sec','cL','cR'});
+writetable(cLcR_tbl, 'interdependent_chromosome_trajectory_sample01.csv');
