@@ -7,3 +7,11 @@
 # Ignore temporary files
 .DS_Store
 Thumbs.db
+
+# Ignore output directory
+**/Output_*/
+**/_archive/
+
+# Ignore oscillation bifurcation sweep scripts (not used in paper)
+determinate_Sweep_Oscillation_bifurcation.m
+noise_Sweep_Oscillation_bifurcation.m
