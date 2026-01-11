@@ -22,15 +22,18 @@
 %   1) CSV summary (used for Python replotting / panel assembly):
 %        MSV_determinate_Alpha_3_0.2_15.csv
 %      Columns: AlphaScale, Alpha, Kct, Avg_KE
-%   2) MATLAB heatmap figure (imagesc) showing Avg_KE over the sweep grid
 %
 % NOTES
 %   - This script stores ONLY per-parameter summary metrics (Avg_KE).
 %     It does NOT store full time series to keep output lightweight.
 %   - Alpha is derived from AlphaScale by:
 %        Alpha = n_dot * AlphaScale / (1 - Beta)
-%   - chromosome_activity_measurement(cL, cR, dt) return a table with
+%   - Chromosome_activity_measurement(cL, cR, dt) function return a table with
 %     variable "Avg_KE" (single-row for a single simulation run).
+%   - Because the full Alpha–Kct parameter sweep is computationally expensive,
+%     the processed CSV summary output (MSV_determinate_Alpha_3_0.2_15.csv)
+%     is committed to the repository and can be used directly to reproduce
+%     Figure S2B and Figure S2D.
 %
 % AUTHOR: 
 %   Jiali Zhu, August, 2025, UNC-Chapel Hill 
@@ -168,11 +171,9 @@ set(ax, 'YDir','normal');
 colormap(ax, cmap);
 axis(ax, 'tight');
 
-% Limits (match the Python view window)
+% Limits
 xlim(ax, [3.0 15.0]);
 ylim(ax, [10 20]);          
-
-% Ticks similar to Python
 xticks(ax, 3:1:15);
 yticks(ax, 10:1:20);
 ax.XTickLabel = arrayfun(@(v) sprintf('%.1f', v), ax.XTick, 'UniformOutput', false);
