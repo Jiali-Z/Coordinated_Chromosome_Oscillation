@@ -69,7 +69,7 @@
 clc;clear;close all;
 
 % ---------------- Time information ----------------
-dt = 2e-3;  % time step (min)
+dt = 2e-3;     % time step (min)
 Nsteps = 5000; % number of simulation steps 
 
 % ---------------- Model parameters ----------------
@@ -196,7 +196,7 @@ activty_table = chromosome_activity_measurement(cL, cR, dt);
 disp('Chromosome Activity Summary:');
 disp(activty_table);
 
-% Figure 4: activity metrics bar plot
+% Figure 5: activity metrics bar plot
 figure;
 bar_data = [activty_table.Avg_KE; activty_table.vL; activty_table.vR];
 bar_labels = {'Avg KE', 'Avg |v_L|', 'Avg |v_R|'};
