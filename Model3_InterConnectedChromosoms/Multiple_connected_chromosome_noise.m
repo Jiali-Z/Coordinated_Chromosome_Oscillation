@@ -57,6 +57,17 @@
 %     - CSV of per-chromosome trajectories vs time:
 %       (columns: Chromosome, Step, T_min, T_sec, cL, cR)
 %
+% HOW TO USE 
+%   This script can be used for two analyses:
+%
+%   (1) Spring network dynamics → coordination strength (Figure 4C)
+%       - Vary kon_0 and koff_0 to change how frequently inter-chromosomal
+%         springs form/break, and quantify how chromosome coordination changes
+%
+%   (2) Single-chromosome dynamics → sensitivity to coupling (Figure S3C)
+%       - Vary alpha and Kct to tune the intrinsic oscillation dynamics of
+%         individual chromosome pairs, then measure how these changes impact 
+%         single-chromosome oscillation features (CM/KK amplitude/period). 
 %
 % DEPENDENCIES
 %   oscillation_measurement.m
@@ -143,24 +154,31 @@ for i = 1: Nchromosomes
     cR(1,1,i) =I0/2+epsilon*(2*rand(1)-1);   % right sister initial x-position
     cL(:,2,i) = y_positions(i);              % y fixed
     cR(:,2,i) = y_positions(i);              % y fixed
-    % MT tip position 
+    % Initial MT tip positions (offset from chromosomes; chosen to start dynamics)
     xL(1,i) = cL(1,1,i)-0.3;
     xR(1,i) = cR(1,1,i)+0.3;
+     % Initial chromosome velocities
     vL(1,i)=0;
     vR(1,i)=0;
 end 
 
-% ODE solver loop
+% ---------------- Time integration loop (explicit Euler) ----------------
 for t = 1:Nsteps
-    %Update connection state 
-    CM = squeeze((cL(t,1,:) + cR(t,1,:)) / 2);  % N x 1 vector
-    YM = squeeze((cL(t,2,:) + cR(t,2,:)) / 2);  % N x 1 vector
+     % ----- Update stochastic spring network  -----
+    CM = squeeze((cL(t,1,:) + cR(t,1,:)) / 2);   % CM x-position (N x 1)
+    YM = squeeze((cL(t,2,:) + cR(t,2,:)) / 2);   % fixed y-position (N x 1)
+    % spring_connect returns:
+    %   flag_c : NxN adjacency matrix (1 = connected spring, 0 = no spring)
+    %   dist   : pairwise distance matrix (optional diagnostic)
     [flag_c,dist]=spring_connect(CM,YM,flag_cp,Nchromosomes,dt,l0,koff_0,kon_0);
+    % Track total number of unique connections (upper triangle excludes double counting)
     flag_c_sum_accumulated(t) = sum(triu(flag_c,1),'all');
-    flag_cp = flag_c;  % Update prior state
+    % Update prior state
+    flag_cp = flag_c;  
+
     for i=1:Nchromosomes 
-        % Force Calculations 
-        %Coupling force 
+        % ----- Force calculations -----
+        % Inter-chromosomal Coupling force 
         F_coupling_x=0;
         for j = 1:Nchromosomes
             if j ~= i  % Skip self
@@ -168,30 +186,28 @@ for t = 1:Nsteps
                 F_coupling_x = F_coupling_x - k * delta_x * flag_c(i, j);
             end
         end
-        % Random Force 
-        F_noise = 0*noise_b *(randn(1,1)) / sqrt(dt); % Brownian Force
         % Define centromere and MT forces on the given chromosome
-        F_KT_L = -NL(t,i) * Kkt * (cL(t,1,i) - xL(t,i)); % MT forces on Left Chromosome
-        F_CT_L = Kct * (cR(t,1,i) - cL(t,1,i) - I0); % Centromere forces on Left Chromosome
-        F_KT_R = -NR(t,i) * Kkt * (cR(t,1,i) - xR(t,i)); % MT forces on Right Chromosome
-        F_CT_R = -Kct * (cR(t,1,i) - cL(t,1,i) - I0); % Centromere forces on Right Chromosome
+        F_KT_L = -NL(t,i) * Kkt * (cL(t,1,i) - xL(t,i));  % force on left chromosome from KT–MT bundle
+        F_CT_L = Kct * (cR(t,1,i) - cL(t,1,i) - I0);      % Centromere forces on Left Chromosome
+        F_KT_R = -NR(t,i) * Kkt * (cR(t,1,i) - xR(t,i));  % force on right chromosome from KT–MT bundle
+        F_CT_R = -Kct * (cR(t,1,i) - cL(t,1,i) - I0);     % Centromere forces on Right Chromosome
     
-        % Calculate velocities 
-        vL(t,i) = (F_KT_L + F_CT_L+F_noise+F_coupling_x)/Gamma;
-        vR(t,i) = (F_KT_R + F_CT_R+F_noise+F_coupling_x)/Gamma;
+        % ----- Velocities (overdamped dynamics) -----
+        vL(t,i) = (F_KT_L + F_CT_L+F_coupling_x)/Gamma;
+        vR(t,i) = (F_KT_R + F_CT_R+F_coupling_x)/Gamma;
         
-        % Update Positions 
-        % Calculate the current chromosome position in both directions
+        % ----- Update chromosome positions -----
+        % Common-mode positional jitter: the same dx_diff is added to both sisters,
         dx_diff=noise_b *(randn(1))*sqrt(dt);
         cL(t+1,1,i) = cL(t,1,i) + dt * vL(t,i)+dx_diff ;
         cR(t+1,1,i) = cR(t,1,i) + dt * vR(t,i)+dx_diff ;
         % Maintain fixed Y positions
         cL(t+1,2,i) = cL(1,2,i);
         cR(t+1,2,i) = cR(1,2,i);
-        % Calculate the current microtubule tip position in both directions
+         % ----- Update MT tip positions -----
         xL(t+1,i) = xL(t,i) + dt * Beta * (vL(t,i));
         xR(t+1,i) = xR(t,i) + dt * Beta * (vR(t,i));
-        % Update number of attachments 
+        % ----- Update attachment numbers -----
         NL(t+1,i) = NL(t,i) + dt * (...
             n_dot(i) +(-Alpha(i) * NL(t,i) * (1 - Beta) * vL(t,i) * (1 - NL(t,i)/Nmax)) ...
             - Lambda(i)* NL(t,i));
@@ -201,8 +217,8 @@ for t = 1:Nsteps
     end
 end
 
-%Draw afterwards
-% side-by-side CM positions overtime 
+% ---------------- Derived observables and plotting ----------------
+%  Figure 1: CM vs time (stacked/offset for visibility)
 figure;
 hold on;
 time = (0:Nsteps) * dt;
@@ -217,8 +233,7 @@ legend(arrayfun(@(i) sprintf('Chr %d', i), 1:Nchromosomes, 'UniformOutput', fals
 set(gca, 'FontSize', 14);
 grid on;
 
-%Draw afterwards
-% side-by-side CM positions overtime 
+%Figure 2: CM vs time (raw traces, no offset)
 figure;
 hold on;
 time = (0:Nsteps) * dt;
@@ -233,7 +248,7 @@ legend(arrayfun(@(i) sprintf('Chr %d', i), 1:Nchromosomes, 'UniformOutput', fals
 set(gca, 'FontSize', 14);
 grid on;
 
-% Movement Trajectories 
+% Figure 3: 2D CM trajectories (x vs fixed y)
 figure;
 hold on;
 time = (0:Nsteps) * dt;
@@ -249,7 +264,7 @@ legend(arrayfun(@(i) sprintf('Chr %d', i), 1:Nchromosomes, 'UniformOutput', fals
 set(gca, 'FontSize', 14);
 grid on;
 
-% Plot total number of connections over time
+% Figure 4: Total # connections vs time
 figure;
 plot((1:Nsteps)*dt, flag_c_sum_accumulated, 'LineWidth', 2);
 xlabel('Time (min)', 'FontSize', 18, 'FontName', 'Arial');
@@ -259,7 +274,7 @@ set(gca, 'FontSize', 16, 'FontName', 'Arial');
 grid on;
 
 
-% Plot sliding average of total number of connections over time
+% Figure 5: Sliding average of connections (5 s window)
 figure;
 window_size = round(5 / (dt * 60));  % steps per 5-second interval
 flag_c_sliding_avg = movmean(flag_c_sum_accumulated, window_size);
@@ -272,50 +287,17 @@ set(gca, 'FontSize', 16, 'FontName', 'Arial');
 ylim([0,12]);
 grid on;
 hold on; 
-% % Movement Trajectories 
-% figure;
-% hold on;
-% time = (0:Nsteps) * dt;
-% for i = 1:Nchromosomes
-%     CMx = (cL(:,1,i) + cR(:,1,i)) / 2;
-%     CMy = (cL(:,2,i) + cR(:,2,i)) / 2;
-%     plot(CMx, CMy, 'LineWidth', 2);
-% end
-% xlabel('Center of Mass X Position (µm)');
-% ylabel('Center of Mass Y Position (µm)');
-% title('Chromosome CM Oscillations');
-% legend(arrayfun(@(i) sprintf('Chr %d', i), 1:Nchromosomes, 'UniformOutput', false));
-% set(gca, 'FontSize', 14);
-% grid on;
 
-%% Save .csv for plotting in python 
-Step   = (0:Nsteps)';            % 0,1,2,...,Nsteps 
-T_min = (0:Nsteps)' * dt;        % time in minutes
-T_sec = T_min * 60;              % time in seconds 
-
-cL_x = squeeze(cL(:,1,:));      % (Nsteps+1) x Nchromosomes
-cR_x = squeeze(cR(:,1,:));      % (Nsteps+1) x Nchromosomes
-% Build data matrix
-Chromosome = repelem((1:Nchromosomes)', numel(Step), 1);   
-Step_all   = repmat(Step, Nchromosomes, 1);
-Tmin_all   = repmat(T_min, Nchromosomes, 1);
-Tsec_all   = repmat(T_sec, Nchromosomes, 1);
-cL_col     = reshape(cL_x, [], 1);
-cR_col     = reshape(cR_x, [], 1);
-
-cLcR_tbl = table(Chromosome, Step_all, Tmin_all, Tsec_all, cL_col, cR_col, ...
-    'VariableNames', {'Chromosome','Step','T_min','T_sec','cL','cR'});
-writetable(cLcR_tbl, 'activity_fit_strong_spring_chromosome_trajectory.csv');
-%% Analysis 
+% ---------------- Oscillation and activity analysis ----------------
 % Oscillation Analysis 
-[~, ~, summary] = oscillation_measurement(cL(:,:,:), cR(:,:,:), dt, 1, true);
+[~, ~, summary] = oscillation_measurement(cL(:,:,:), cR(:,:,:), dt, 1, false);
 disp('Per-Chromosome Oscillation Summary:');
 disp(summary);
 % Chromosome Activity Analysis
 activity_all= chromosome_activity_measurement(cL(:,:,:), cR(:,:,:), dt);
 disp('Per-Chromosome Activity Summary:');
 disp(activity_all);
-
+% Figure 6: activity metrics bar plot for each chromosome 
 figure;
 bar_data = [activity_all.Avg_KE, activity_all.vL, activity_all.vR];
 bar(bar_data, 'grouped');
@@ -325,10 +307,11 @@ ylabel('Value');
 title('Chromosome Activity');
 grid on;
 
-%% Pearon's correlation analysis 
+% ---------------- inter-chromosomal correlation analysis ----------------
+% Pearon's correlation analysis 
 duration = 10;  % minutes
 pearson_table = pearsons_correlation_analysis(cL, cR, dt, duration);
-% Plot the distribution of Pearson's coefficients
+% Figure 7: distribution of Pearson's coefficients
 figure; 
 histogram(pearson_table.pearson_r, 20);                        % 20 bins; adjust if you like
 xlabel('Pearson''s r (CM vs CM)');
@@ -339,7 +322,7 @@ xline(0, '--k');                                % reference at r=0
 xline(mean(pearson_table.pearson_r,'omitnan'), 'r-', 'LineWidth', 1.5);  % mean r
 hold off;
 
-%% Cross-correlation Analysis 
+% Cross-correlation Analysis 
 % Create a structure array to store results
 records = struct('iteration', {}, 'tau', {}, 'neighbor', {}, 'C_value', {}, 'N_value', {});
 tau_step = round(5 / (dt * 60));  % Number of steps per 5-second interval
@@ -370,7 +353,7 @@ for tau = tau_values
 end
 records_table = struct2table(records);
 
-% Plot 1: Avg Cross-Correlation vs Neighbor Level for Each τ Group
+% Figure 8: Avg Cross-Correlation vs Neighbor Level for Each τ Group
 figure; hold on;
 colors = lines(size(tau_groups, 1));
 for g = 1:size(tau_groups, 1)
@@ -388,7 +371,7 @@ xlabel('Neighbor Level'); ylabel('Avg Norm Cross-Corr');
 title('C vs Neighbor Level (Grouped by \tau)');
 legend; grid on; box on;
 
-% Plot 2: C vs Time Lag for Neighbor Level = 1, 2, 3
+% Figure 9: Avg Cross-Correlation vs Neighbor Level for Each τ Group
 figure; hold on;
 for n = 1:Nchromosomes-1
     subset = records_table(records_table.neighbor == n, :);
@@ -405,3 +388,22 @@ legend('Location', 'best');
 grid on; box on;
 set(gca, 'FontSize', 12);
 
+
+%% Save .csv for plotting in python 
+Step   = (0:Nsteps)';            % 0,1,2,...,Nsteps 
+T_min = (0:Nsteps)' * dt;        % time in minutes
+T_sec = T_min * 60;              % time in seconds 
+
+cL_x = squeeze(cL(:,1,:));      % (Nsteps+1) x Nchromosomes
+cR_x = squeeze(cR(:,1,:));      % (Nsteps+1) x Nchromosomes
+% Build data matrix
+Chromosome = repelem((1:Nchromosomes)', numel(Step), 1);   
+Step_all   = repmat(Step, Nchromosomes, 1);
+Tmin_all   = repmat(T_min, Nchromosomes, 1);
+Tsec_all   = repmat(T_sec, Nchromosomes, 1);
+cL_col     = reshape(cL_x, [], 1);
+cR_col     = reshape(cR_x, [], 1);
+
+cLcR_tbl = table(Chromosome, Step_all, Tmin_all, Tsec_all, cL_col, cR_col, ...
+    'VariableNames', {'Chromosome','Step','T_min','T_sec','cL','cR'});
+writetable(cLcR_tbl, 'activity_fit_strong_spring_chromosome_trajectory.csv');
