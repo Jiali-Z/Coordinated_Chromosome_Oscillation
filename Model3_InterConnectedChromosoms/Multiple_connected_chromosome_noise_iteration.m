@@ -47,6 +47,24 @@
 %     - Avg cross-correlation vs tau for each neighbor level
 %     - (Optional) CM traces every 20th valid iteration (sanity check)
 %
+% HOW THIS SCRIPT IS USED IN THE PAPER
+%   This script generates population-level chromosome coordination statistics
+%   for the following figures:
+%
+%   (1) Pearson’s R distributions (Figure 4C, Figure S3C)
+%       - Figure 4C: sweep kon_0 and koff_0 to modulate spring dynamics and
+%         quantify changes in pooled Pearson’s r.
+%       - Figure S3C: sweep kon_0 and koff_0 to modulate spring dynamics
+%         for experimental-level alpha and Kct parameter values identified
+%         in the single chromosome model and measure the impact on pooled Pearson’s r.
+%
+%   (2) Displacement cross-correlation analyses
+%       - Cross-correlation vs neighbor order and vs lag time τ for:
+%           Control: k = 0.5, l0 = 3   (Kic = 0.5, Iic = 3)
+%           Noc:     k = 0.5, l0 = 5   (Kic = 0.5, Iic = 5)
+%           TSA:     k = 0.2, l0 = 5   (Kic = 0.2, Iic = 5)
+%       - Paper notation: k → Kic, l0 → Iic.
+%
 % DEPENDENCIES (must be on MATLAB path)
 %   oscillation_measurement.m
 %   chromosome_activity_measurement.m
