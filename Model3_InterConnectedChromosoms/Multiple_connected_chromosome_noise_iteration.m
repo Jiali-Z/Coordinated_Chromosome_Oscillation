@@ -175,17 +175,17 @@ while valid_iterations < target_iterations
     
     % ---------------- Time integration loop (explicit Euler) ----------------
     for t = 1:Nsteps
-    % ----- Update stochastic spring network  -----
-    CM = squeeze((cL(t,1,:) + cR(t,1,:)) / 2);  % CM x-position (N x 1)
-    YM = squeeze((cL(t,2,:) + cR(t,2,:)) / 2);  % CM fixed y-position (N x 1)
-    % spring_connect returns:
-    %   flag_c : NxN adjacency matrix (1 = connected spring, 0 = no spring)
-    %   dist   : pairwise distance matrix (optional diagnostic)
-    [flag_c,dist]=spring_connect(CM,YM,flag_cp,Nchromosomes,dt,l0,koff_0,kon_0);
-    % Track total number of unique connections (upper triangle excludes double counting)
-    flag_c_sum_accumulated(t) = sum(triu(flag_c,1),'all');
-    % Update prior state
-    flag_cp = flag_c;  
+        % ----- Update stochastic spring network  -----
+        CM = squeeze((cL(t,1,:) + cR(t,1,:)) / 2);  % CM x-position (N x 1)
+        YM = squeeze((cL(t,2,:) + cR(t,2,:)) / 2);  % CM fixed y-position (N x 1)
+        % spring_connect returns:
+        %   flag_c : NxN adjacency matrix (1 = connected spring, 0 = no spring)
+        %   dist   : pairwise distance matrix (optional diagnostic)
+        [flag_c,dist]=spring_connect(CM,YM,flag_cp,Nchromosomes,dt,l0,koff_0,kon_0);
+        % Track total number of unique connections (upper triangle excludes double counting)
+        flag_c_sum_accumulated(t) = sum(triu(flag_c,1),'all');
+        % Update prior state
+        flag_cp = flag_c;  
         for i=1:Nchromosomes
             % ----- Force calculations -----
             % Inter-chromosomal Coupling force 
@@ -207,7 +207,7 @@ while valid_iterations < target_iterations
             vR(t,i) = (F_KT_R + F_CT_R+F_noise+F_coupling_x)/Gamma;
             
             % ----- Update chromosome positions -----
-           % Common-mode positional jitter: the same dx_diff is added to both sisters,
+            % Common-mode positional jitter: the same dx_diff is added to both sisters,
             dx_diff=noise_b *(randn(1))*sqrt(dt);
             cL(t+1,1,i) = cL(t,1,i) + dt * vL(t,i)+dx_diff ;
             cR(t+1,1,i) = cR(t,1,i) + dt * vR(t,i)+dx_diff ;
