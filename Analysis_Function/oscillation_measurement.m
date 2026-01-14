@@ -1,8 +1,60 @@
 function [table_raw, table_cycle, table_summary] = oscillation_measurement(cL, cR, dt, iter, visualize)
-% Extract CM and KK oscillation amplitude and period per iteration
-% - Stacks CM/KK with a 'metric' column
-% - Uses a 3-point cycle detector with minJump
-% - Visualization (if visualize==true) shows only VALID cycles
+%   Extract oscillatory features of chromosome motion from a single simulation
+%   iteration by analyzing:
+%     (1) Center-of-mass (CM) oscillations
+%     (2) Inter-kinetochore distance (KK) oscillations
+%
+%   Oscillation cycles are identified using a three-extrema (peak–valley–peak
+%   or valley–peak–valley) detector with metric-specific amplitude and period
+%   constraints. Only VALID cycles are retained for summary statistics.
+%
+%   The function outputs raw extrema, per-cycle measurements, and per-chromosome
+%   summary statistics suitable for population-level pooling across iterations.
+%
+% INPUTS
+%   cL, cR     : [Nsteps × 2 × Nchromosomes] arrays
+%                Left and right chromatid positions.
+%                Dimension 2 corresponds to [x, y]; analysis is performed on x.
+
+%   dt         : Scalar (minutes)
+%                Simulation time step.
+%
+%   iter       : Scalar integer
+%                Iteration index (used for bookkeeping in output tables).
+%
+%   visualize  : (optional) logical, default = false
+%                If true, plots CM and KK trajectories for each chromosome and
+%                overlays only VALID oscillation cycles used in the analysis.
+%
+% OUTPUTS
+%   table_raw
+%       Table of all detected CM and KK extrema (peaks and valleys), including:
+%         - time        : time of extrema (minutes)
+%         - value       : signal value at extrema
+%         - type        : "peak" or "valley"
+%         - metric      : "CM" or "KK"
+%         - chromosome  : chromosome index
+%         - iteration   : iteration ID
+%
+%   table_cycle
+%       Table of per-cycle oscillation measurements extracted from consecutive
+%       extrema triplets, including:
+%         - amplitude1, amplitude2 : half peak-to-valley distances
+%         - period                 : time between first and third extrema
+%         - is_cycle               : "Y" (valid) or "N" (rejected)
+%         - metric, chromosome, iteration
+%
+%   table_summary
+%       Summary table computed ONLY from valid cycles (is_cycle == "Y"),
+%       reporting mean oscillation amplitude and period for each:
+%         (iteration × chromosome × metric) group.
+%       Returns an empty table if no valid cycles are detected.
+%
+% NOTES
+%   - CM and KK oscillations use different detection thresholds reflecting
+%     their characteristic amplitudes and timescales.
+%   - This function operates on a SINGLE simulation iteration and is intended
+%     to be called inside multi-iteration simulation loops.
 
 if nargin < 5, visualize = false; end
 
