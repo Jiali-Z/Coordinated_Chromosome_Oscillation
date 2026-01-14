@@ -1,20 +1,42 @@
-# Ignore MATLAB autosave files
+# ===============================
+# MATLAB / OS junk
+# ===============================
 *.asv
-
-# Ignore backup files
 *~
-
-* Ignore .csv files
-* .csv
-
-# Ignore temporary files
 .DS_Store
 Thumbs.db
 
-# Ignore output directory
+# ===============================
+# Ignore outputs and archives
+# ===============================
 **/Output_*/
 **/_archive/
 
-# Ignore oscillation bifurcation sweep scripts (not used in paper)
+# ===============================
+# Ignore common binary output
+# ===============================
+*.csv
+*.mat
+*.mp4
+*.png
+
+# ===============================
+# Allow PAPER CSVs explicitly
+# ===============================
+
+# Model 1 (paper)
+!Model1_OneChromosome/Output_Sweep_Bifurcation/
+!Model1_OneChromosome/Output_Sweep_Bifurcation/MSV_determinate_Alpha_3_0.2_15.csv
+!Model1_OneChromosome/Output_Sweep_Bifurcation/MSV_noise_alpha_3_0.2_15.csv
+
+# Model 3 (paper)
+!Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/
+!Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/kct_alpha_MSV_results.csv
+!Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/kct_alpha_pearson_results.csv
+!Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/l0_k_pearsonR_results.csv
+
+# ===============================
+# Ignore unused sweep scripts
+# ===============================
 determinate_Sweep_Oscillation_bifurcation.m
-noise_Sweep_Oscillation_bifurcation.m 
+noise_Sweep_Oscillation_bifurcation.m

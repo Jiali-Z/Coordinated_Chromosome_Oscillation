@@ -1,164 +1,175 @@
 function [table_raw, table_cycle, table_summary] = oscillation_measurement(cL, cR, dt, iter, visualize)
 % Extract CM and KK oscillation amplitude and period per iteration
+% - Stacks CM/KK with a 'metric' column
+% - Uses a 3-point cycle detector with minJump
+% - Visualization (if visualize==true) shows only VALID cycles
 
-% Time vector
-Nsteps = size(cL, 1);
-t = (0:Nsteps-1) * dt;
+if nargin < 5, visualize = false; end
+
+% --- Time & sizes ---
+Nsteps       = size(cL, 1);
+t            = (0:Nsteps-1) * dt;
 Nchromosomes = size(cL, 3);
 
-table_raw_all = [];
-table_cycles_all = [];
-
-% Parameters
-buffer_time =1; % min to exclude peaks near edges
-buffer_idx = round(buffer_time / dt);
+% --- Collectors ---
+table_raw_all    = table();
+table_cycles_all = table();
 
 for chr = 1:Nchromosomes
-    % Get CM and KK
+    % ---- Signals ----
     CM = (cL(:,1,chr) + cR(:,1,chr)) / 2;
-    KK = cR(:,1,chr) - cL(:,1,chr);
+    KK =  cR(:,1,chr) - cL(:,1,chr);
 
-    % --- CM peak/valley detection ---
-    [CM_peaks, CM_peak_locs] = findpeaks(CM, 'MinPeakProminence', 1,'MinPeakDistance',round(1/dt));
-    [CM_valleys, CM_valley_locs] = findpeaks(-CM, 'MinPeakProminence', 1,'MinPeakDistance',round(1/dt));
+    % ---- CM peak/valley detection (distances in samples) ----
+    [CM_peaks,   CM_peak_locs]   = findpeaks(CM,  'MinPeakProminence', 1.00, 'MinPeakDistance', round(1/dt));
+    [CM_valleys, CM_valley_locs] = findpeaks(-CM, 'MinPeakProminence', 1.00, 'MinPeakDistance', round(1/dt));
     CM_valleys = -CM_valleys;
 
-    % Exclude near-boundary peaks/valleys
-    valid_CM_peaks = CM_peak_locs > buffer_idx & CM_peak_locs < Nsteps - buffer_idx;
-    valid_CM_valleys = CM_valley_locs > buffer_idx & CM_valley_locs < Nsteps - buffer_idx;
-    CM_peaks = CM_peaks(valid_CM_peaks);
-    CM_peak_locs = CM_peak_locs(valid_CM_peaks);
-    CM_valleys = CM_valleys(valid_CM_valleys);
-    CM_valley_locs = CM_valley_locs(valid_CM_valleys);
-
-    % --- KK peak/valley detection ---
-    [KK_peaks, KK_peak_locs] = findpeaks(KK, 'MinPeakProminence', 0.35,'MinPeakDistance',round(0.5/dt));
-    [KK_valleys, KK_valley_locs] = findpeaks(-KK, 'MinPeakProminence', 0.35,'MinPeakDistance',round(0.5/dt));
+    % ---- KK peak/valley detection ----
+    [KK_peaks,   KK_peak_locs]   = findpeaks(KK,  'MinPeakProminence', 0.20, 'MinPeakDistance', round(0.5/dt));
+    [KK_valleys, KK_valley_locs] = findpeaks(-KK, 'MinPeakProminence', 0.20, 'MinPeakDistance', round(0.5/dt));
     KK_valleys = -KK_valleys;
 
-    valid_KK_peaks = KK_peak_locs > buffer_idx & KK_peak_locs < Nsteps - buffer_idx;
-    valid_KK_valleys = KK_valley_locs > buffer_idx & KK_valley_locs < Nsteps - buffer_idx;
-    KK_peaks = KK_peaks(valid_KK_peaks);
-    KK_peak_locs = KK_peak_locs(valid_KK_peaks);
-    KK_valleys = KK_valleys(valid_KK_valleys);
-    KK_valley_locs = KK_valley_locs(valid_KK_valleys);
-
-    % --- Construct raw peak/valley table ---
-    T_Raw_CM = table([t(CM_peak_locs)'; t(CM_valley_locs)'], ...
+    % ---- Raw tables (with metric) ----
+    T_Raw_CM = table( ...
+        [t(CM_peak_locs)'; t(CM_valley_locs)'], ...
         [CM_peaks; CM_valleys], ...
-        [repmat("peak", length(CM_peaks), 1); repmat("valley", length(CM_valleys), 1)], ...
-        repmat("CM", length(CM_peaks)+length(CM_valleys), 1), ...
-        repmat(chr, length(CM_peaks)+length(CM_valleys), 1), ...
-        repmat(iter, length(CM_peaks)+length(CM_valleys), 1), ...
-        'VariableNames', {'time', 'value', 'type', 'metric', 'chromosome', 'iteration'});
-    T_Raw_CM = sortrows(T_Raw_CM, 'time');
+        [repmat("peak",   numel(CM_peaks),   1); repmat("valley", numel(CM_valleys), 1)], ...
+        repmat("CM", numel(CM_peaks)+numel(CM_valleys), 1), ...
+        repmat(chr,  numel(CM_peaks)+numel(CM_valleys), 1), ...
+        repmat(iter, numel(CM_peaks)+numel(CM_valleys), 1), ...
+        'VariableNames', {'time','value','type','metric','chromosome','iteration'});
+    T_Raw_CM = sortrows(T_Raw_CM,'time');
 
-    T_Raw_KK = table([t(KK_peak_locs)'; t(KK_valley_locs)'], ...
+    T_Raw_KK = table( ...
+        [t(KK_peak_locs)'; t(KK_valley_locs)'], ...
         [KK_peaks; KK_valleys], ...
-        [repmat("peak", length(KK_peaks), 1); repmat("valley", length(KK_valleys), 1)], ...
-        repmat("KK", length(KK_peaks)+length(KK_valleys), 1), ...
-        repmat(chr, length(KK_peaks)+length(KK_valleys), 1), ...
-        repmat(iter, length(KK_peaks)+length(KK_valleys), 1), ...
-        'VariableNames', {'time', 'value', 'type', 'metric', 'chromosome', 'iteration'});
-    T_Raw_KK = sortrows(T_Raw_KK, 'time');
+        [repmat("peak",   numel(KK_peaks),   1); repmat("valley", numel(KK_valleys), 1)], ...
+        repmat("KK", numel(KK_peaks)+numel(KK_valleys), 1), ...
+        repmat(chr,  numel(KK_peaks)+numel(KK_valleys), 1), ...
+        repmat(iter, numel(KK_peaks)+numel(KK_valleys), 1), ...
+        'VariableNames', {'time','value','type','metric','chromosome','iteration'});
+    T_Raw_KK = sortrows(T_Raw_KK,'time');
 
-    table_raw_all = [table_raw_all; T_Raw_CM; T_Raw_KK];
+    table_raw_all = [table_raw_all; T_Raw_CM; T_Raw_KK]; %#ok<AGROW>
 
-    % --- Pairing for CM cycles ---
-    CM_events = [CM_valley_locs(:), zeros(length(CM_valley_locs),1); ...
-                 CM_peak_locs(:), ones(length(CM_peak_locs),1)];
-    CM_events = sortrows(CM_events, 1);
+    % ---- Cycle tables (minJump per metric) ----
+    cycle_CM = extract_cycles(T_Raw_CM, 0.76, 3.18, 1.33,3.58, "CM");
+    cycle_KK = extract_cycles(T_Raw_KK, 0.20,1.74, 0.50,1.7 ,"KK");
+    table_cycles_all = [table_cycles_all; cycle_CM; cycle_KK]; %#ok<AGROW>
 
-    paired_amp_CM = [];
-    paired_period_CM = [];
-    for i = 1:(size(CM_events,1)-1)
-        if CM_events(i,2) == 0 && CM_events(i+1,2) == 1 % valley → peak
-            vi = CM_events(i,1); pi = CM_events(i+1,1);
-            dt_cycle = t(pi) - t(vi);
-            if dt_cycle <= 10.0 % CM: max valley-to-peak time = 2 min
-                paired_amp_CM(end+1,1) = (CM(pi) - CM(vi)) / 2;
-                paired_period_CM(end+1,1) = dt_cycle * 2; % full period
-            end
-        end
-    end
-
-    % --- Pairing for KK cycles ---
-    KK_events = [KK_valley_locs(:), zeros(length(KK_valley_locs),1); ...
-                 KK_peak_locs(:), ones(length(KK_peak_locs),1)];
-    KK_events = sortrows(KK_events, 1);
-
-    paired_amp_KK = [];
-    paired_period_KK = [];
-    for i = 1:(size(KK_events,1)-1)
-        if KK_events(i,2) == 0 && KK_events(i+1,2) == 1 % valley → peak
-            vi = KK_events(i,1); pi = KK_events(i+1,1);
-            dt_cycle = t(pi) - t(vi);
-            if dt_cycle <= 10.0 % KK: max valley-to-peak time = 1 min
-                paired_amp_KK(end+1,1) = (KK(pi) - KK(vi)) / 2;
-                paired_period_KK(end+1,1) = dt_cycle * 2; % full period
-            end
-        end
-    end
-
-    % Cycle table: CM
-    T_cycles_CM = table((1:length(paired_amp_CM))', ...
-        repmat(chr, length(paired_amp_CM), 1), ...
-        repmat(iter, length(paired_amp_CM), 1), ...
-        repmat("CM", length(paired_amp_CM), 1), ...
-        paired_amp_CM, paired_period_CM, ...
-        'VariableNames', {'cycle_id', 'chromosome', 'iteration', 'metric', 'amplitude', 'period'});
-
-    % Cycle table: KK
-    T_cycles_KK = table((1:length(paired_amp_KK))', ...
-        repmat(chr, length(paired_amp_KK), 1), ...
-        repmat(iter, length(paired_amp_KK), 1), ...
-        repmat("KK", length(paired_amp_KK), 1), ...
-        paired_amp_KK, paired_period_KK, ...
-        'VariableNames', {'cycle_id', 'chromosome', 'iteration', 'metric', 'amplitude', 'period'});
-
-    table_cycles_all = [table_cycles_all; T_cycles_CM; T_cycles_KK];
-
-    % --- Visualization ---
+    % ---- Optional viz (ONLY valid cycles) ----
     if visualize
-        figure;
-        plot(t, CM, 'k', 'LineWidth', 2); hold on;
-        plot(t, KK, 'm', 'LineWidth', 2);
-        plot(t(CM_peak_locs), CM(CM_peak_locs), 'ko', 'MarkerFaceColor', 'g');
-        plot(t(CM_valley_locs), CM(CM_valley_locs), 'ks', 'MarkerFaceColor', 'y');
-        plot(t(KK_peak_locs), KK(KK_peak_locs), 'mo', 'MarkerFaceColor', 'c');
-        plot(t(KK_valley_locs), KK(KK_valley_locs), 'ms', 'MarkerFaceColor', 'w');
-        legend('CM', 'KK', 'CM peak', 'CM valley', 'KK peak', 'KK valley');
+        valid_CM = cycle_CM(cycle_CM.is_cycle=="Y", :);
+        valid_KK = cycle_KK(cycle_KK.is_cycle=="Y", :);
+
+        figure('Name',sprintf('Chr %d (Iter %d)', chr, iter));
+        plot(t, CM, 'k', 'LineWidth', 1.5); hold on;
+        plot(t, KK, 'm', 'LineWidth', 1.5);
+
+        % mark the 3 points for each valid cycle
+        for k = 1:height(valid_CM)
+            pts = valid_CM.times_3pt{k};
+            plot(pts, interp1(t, CM, pts), 'o', 'MarkerFaceColor','g');
+        end
+        for k = 1:height(valid_KK)
+            pts = valid_KK.times_3pt{k};
+            plot(pts, interp1(t, KK, pts), 's', 'MarkerFaceColor','c');
+        end
+
         xlabel('Time (min)');
-        ylabel('Position (µm)');
-        xticks(0:1:20);
-        title(sprintf('Chromosome %d (Iter %d)', chr, iter));
+        ylabel('Position (\mum)');
+        legend('CM','KK','Valid CM cycle','Valid KK cycle','Location','best');
         grid on;
+        title(sprintf('Chromosome %d (Iter %d)', chr, iter));
     end
 end
 
-% Summary
-table_summary = groupsummary(table_cycles_all, ...
-    {'iteration', 'chromosome', 'metric'}, ...
-    ["mean", "std"], ["amplitude", "period"]);
+% ---- Summaries (only valid cycles) ----
+valid_cycles = table_cycles_all(table_cycles_all.is_cycle=="Y", :);
+if isempty(valid_cycles)
+    table_summary = table();  % clean empty summary
+else
+    table_summary = groupsummary(valid_cycles, ...
+        {'iteration','chromosome','metric'}, 'mean', ...
+        {'amplitude1','amplitude2','period'});
+end
 
-% Outputs
-table_raw = table_raw_all;
+% ---- Outputs ----
+table_raw   = table_raw_all;
 table_cycle = table_cycles_all;
+
+% ================== helper ==================
+function cycle_table = extract_cycles(T_raw, minJump,maxJump,minTime,maxTime,metricName)
+% Identify cycles from alternating peak/valley triplets.
+T_raw = sortrows(T_raw,'time');
+n = height(T_raw);
+% --- Early return if fewer than 3 extrema (cannot form a cycle) ---
+if n < 3
+    cycle_table = table( ...
+        cell(0,1), strings(0,1), [], [], [], strings(0,1), [], [], strings(0,1), ...
+        'VariableNames', {'times_3pt','is_cycle','amplitude1','amplitude2','period', ...
+                          'start_type','chromosome','iteration','metric'});
+    return;
+end
+times_cell  = {};
+is_cycle    = strings(0,1);
+start_type  = strings(0,1);
+amp1        = [];
+amp2        = [];
+period      = [];
+chromosomes = [];
+iterations  = [];
+metrics     = strings(0,1);
+
+i = 1;
+while i <= n-2
+    t1 = T_raw.time(i);   y1 = T_raw.value(i);   s1 = T_raw.type(i);
+    t2 = T_raw.time(i+1); y2 = T_raw.value(i+1); s2 = T_raw.type(i+1);
+    t3 = T_raw.time(i+2); y3 = T_raw.value(i+2); s3 = T_raw.type(i+2);
+
+    isAlt = (s1 ~= s2) && (s1 == s3); % P-V-P or V-P-V
+    if isAlt
+        d1 = abs(y2 - y1);
+        d2 = abs(y3 - y2);
+        p = t3-t1;
+        pass = (d1 >= minJump && d1 <= maxJump) && ...
+               (d2 >= minJump && d2 <= maxJump) && ...
+               (p  >= minTime && p  <= maxTime);
+
+        times_cell{end+1,1}  = [t1, t2, t3];
+        start_type(end+1,1)  = s1;
+        chromosomes(end+1,1) = T_raw.chromosome(i);
+        iterations(end+1,1)  = T_raw.iteration(i);
+        metrics(end+1,1)     = metricName;
+
+        if pass
+            is_cycle(end+1,1) = "Y";
+            amp1(end+1,1)     = d1/2;
+            amp2(end+1,1)     = d2/2;
+            period(end+1,1)   = t3 - t1;
+        else
+            is_cycle(end+1,1) = "N";
+            amp1(end+1,1)     = d1/2;
+            amp2(end+1,1)     = d2/2;
+            period(end+1,1)   = t3 - t1;
+        end
+    end
+    i = i + 1; % overlapping cycles allowed
+end
+
+cycle_table = table( ...
+    times_cell, is_cycle, amp1, amp2, period, start_type, ...
+    chromosomes, iterations, metrics, ...
+    'VariableNames', {'times_3pt','is_cycle','amplitude1','amplitude2','period', ...
+                      'start_type','chromosome','iteration','metric'});
+end
+
 end
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+   
 
 
 

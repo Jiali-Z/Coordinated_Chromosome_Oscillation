@@ -17,18 +17,19 @@ end
 
 results = [];
 [Nsteps, ~, Nchromosomes] = size(cL);
-sampling_interval=round(5/60/dt);  % every 5second, ~21
+sampling_interval=round((5/60)/dt);  % every 5second, ~21
 total_steps = min(round(duration / dt), Nsteps); % limit to Nsteps
 
 for idx = 1:Nchromosomes
     signalL = squeeze(cL(1:sampling_interval:total_steps, 1, idx)); % x only
     signalR = squeeze(cR(1:sampling_interval:total_steps, 1, idx)); 
-    time_sampled = (0:length(signalL)-1)' * sampling_interval * dt;
+    time_sampled_min = (0:length(signalL)-1)' * sampling_interval * dt;  % minutes
+    time_sampled_sec = time_sampled_min * 60;  % seconds 
     vL_list = [];
     vR_list = [];
     % Sliding window 3-point slope calculation
     for j = 1:(length(signalL) - 2)
-        t_chunk = time_sampled(j:j+2);
+        t_chunk = time_sampled_min(j:j+2);
         sL_chunk = signalL(j:j+2);
         sR_chunk = signalR(j:j+2);
 
@@ -41,10 +42,10 @@ for idx = 1:Nchromosomes
     end
 
     % Kinetic energy and velocity stats
-    KE = vL_list.^2 + vR_list.^2;
-    avg_KE = mean(KE);
-    avg_vL = mean(abs(vL_list));
-    avg_vR = mean(abs(vR_list));
+    avg_KE = mean(vL_list.^2 + vR_list.^2,'omitnan');
+    
+    avg_vL = mean((vL_list), 'omitnan');
+    avg_vR = mean((vR_list), 'omitnan');
 
     % Store result
     results = [results; struct( ...
