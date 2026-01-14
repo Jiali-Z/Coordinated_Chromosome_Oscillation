@@ -12,6 +12,12 @@ Thumbs.db
 **/Output_*/
 **/_archive/
 
+
+# ===============================
+# Ignore function test scripts
+Function_test/
+# ===============================
+
 # ===============================
 # Ignore common binary output
 # ===============================
