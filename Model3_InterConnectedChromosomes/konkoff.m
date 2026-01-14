@@ -1,3 +1,16 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PURPOSE (Figure S4B)
+%   For a given choice of base inter-chromosomal coupling kinetics
+%   (kon_0, koff_0), this script visualizes how the connection (kon) 
+%   and disconnection (koff) rates vary as a function of inter-chromosomal
+%   distance. 
+%
+% USAGE
+%   Input any desired kon_0 and koff_0 values to generate the corresponding
+%   kon(distance) and koff(distance) curves shown in Figure S4B.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 % Define the parameters
 l0 = 2;
 koff_0=20; % base disconnection rate
