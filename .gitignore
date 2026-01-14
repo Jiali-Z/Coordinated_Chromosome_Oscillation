@@ -34,6 +34,7 @@ Thumbs.db
 !Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/kct_alpha_MSV_results.csv
 !Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/kct_alpha_pearson_results.csv
 !Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/l0_k_pearsonR_results.csv
+!Model3_InterConnectedChromosomes/Output_Sweep_Bifurcation/kon_koff_avg_conn_sweep.csv
 
 # ===============================
 # Ignore unused sweep scripts
